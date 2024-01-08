@@ -32,3 +32,11 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+    - name: Rename
+      run: mv ${{github.workspace}}/build/4shot ${{github.workspace}}/build/4shot-latest.x86_64
+
+    - uses: actions/upload-artifact@v4
+      with:
+          name: 4shot-latest
+          path: ${{github.workspace}}/build/4shot-latest.x86_64
+
