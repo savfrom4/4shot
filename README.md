@@ -1,4 +1,6 @@
-![4shot](4shot.png)
+<p align="center">
+  <img src="4shot.png"/>
+</p>
 
 **Small** X11 utility used for taking screenshots.
 
