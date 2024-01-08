@@ -263,7 +263,7 @@ bool parse_arguments(int argc, char** argv)
                 return false;
             }
 
-            output_file = fopen(argv[i], "w");
+            output_file = fopen(argv[i], "wb");
             if(!output_file)
             {
                 perror("Failed to open the file");
