@@ -1,23 +1,28 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+#include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <X11/X.h>
 #include <png.h>
-#include <time.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-// Config
+/* You can configure keys/mouse buttons here (see X11/keysymdef.h) */
+#define KEY_UP XK_Up
+#define KEY_DOWN XK_Down
+#define KEY_LEFT XK_Left
+#define KEY_RIGHT XK_Right
 #define KEY_SAVE XK_Return
 #define KEY_CANCEL XK_Escape
+
 #define MOUSE_SELECT 1
 #define MOUSE_SAVE 3
-#define OUTLINE_PIXEL (255 << 16)
 
-#define VERSION "1.0"
+#define OUTLINE_PIXEL ((uint64_t)255 << 16)
+
+#define VERSION "1.01"
 
 typedef struct
 {
@@ -39,6 +44,7 @@ png_encoded_t encoded_image;
 
 bool parse_arguments(int argc, char** argv);
 bool take_screnshoot(Display* display, XImage** output);
+XImage* darken_screenshot(XImage* image);
 bool save_screenshot(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height);
 bool image_png_encode(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height);
 
@@ -74,10 +80,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    XImage* scr_image;
+    XImage* scr_image, *darkend_image;
     if(!take_screnshoot(display, &scr_image))
     {
         puts("Failed to take a screenshot");
+        return 1;
+    }
+
+    if(!(darkend_image = darken_screenshot(scr_image)))
+    {
+        puts("Failed to create a screenshot clone");
         return 1;
     }
 
@@ -92,15 +104,14 @@ int main(int argc, char** argv)
         0,
         0
     );
-
     GC gc = XCreateGC(display, window, 0, NULL);
-    Atom atoms[2] = { XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False), None };
 
     // setup backbuffer
     Pixmap back_buffer = XCreatePixmap(display, window, scr_image->width, scr_image->height, 24);
     XPutImage(display, back_buffer, gc, scr_image, 0, 0, 0, 0, scr_image->width, scr_image->height);
     XSetWindowBackgroundPixmap(display, window, back_buffer);
 
+    Atom atoms[2] = { XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False), None };
     XChangeProperty(display, window, XInternAtom(display, "_NET_WM_STATE", False), 4, 32, PropModeReplace, (unsigned char*)atoms, 1);
     XSelectInput(display, window,
         ExposureMask | KeyPressMask | ButtonPress | ButtonReleaseMask |
@@ -131,12 +142,6 @@ int main(int argc, char** argv)
 
                     end_x = ev.xmotion.x;
                     end_y = ev.xmotion.y;
-
-                    if(start_x > end_x)
-                        end_x = start_x + 1;
-
-                    if(start_y > end_y)
-                        end_y = start_y + 1;
                     break;
                 }
 
@@ -164,6 +169,22 @@ int main(int argc, char** argv)
                 {
                     switch(XLookupKeysym(&ev.xkey, 0))
                     {
+                        case KEY_LEFT:
+                            end_x--;
+                            break;
+
+                        case KEY_RIGHT:
+                            end_x++;
+                            break;
+
+                        case KEY_UP:
+                            end_y--;
+                            break;
+
+                        case KEY_DOWN:
+                            end_y++;
+                            break;
+
                         case KEY_CANCEL:
                             goto quit;
 
@@ -175,13 +196,23 @@ int main(int argc, char** argv)
             }
         }
 
-        XPutImage(display, back_buffer, gc, scr_image, 0, 0, 0, 0, scr_image->width, scr_image->height);
+        if(start_x >= end_x)
+            end_x = start_x + 1;
+
+        if(start_y >= end_y)
+            end_y = start_y + 1;
+
+        XPutImage(display, back_buffer, gc, darkend_image, 0, 0, 0, 0, darkend_image->width, darkend_image->height);
         XSetForeground(display, gc, OUTLINE_PIXEL);
         XDrawRectangle(display, back_buffer, gc, start_x, start_y, end_x - start_x, end_y - start_y);
-        XSetForeground(display, gc, WhitePixel(display, screen));
 
         char dim[16];
         snprintf(dim, 16, "(%d, %d)", end_x - start_x, end_y - start_y);
+
+        // Draw dimensions & Shadow
+        XSetForeground(display, gc, BlackPixel(display, screen));
+        XDrawString(display, back_buffer, gc, start_x+1, start_y - 10+1, dim, strlen(dim));
+        XSetForeground(display, gc, WhitePixel(display, screen));
         XDrawString(display, back_buffer, gc, start_x, start_y - 10, dim, strlen(dim));
 
         XCopyArea(display,
@@ -190,8 +221,8 @@ int main(int argc, char** argv)
             gc,
             0,
             0,
-            scr_image->width,
-            scr_image->height,
+            darkend_image->width,
+            darkend_image->height,
             0,
             0
         );
@@ -264,6 +295,31 @@ bool take_screnshoot(Display* display, XImage** output)
     XGetWindowAttributes(display, root, &attr);
     (*output) = XGetImage(display, root, 0, 0, attr.width, attr.height, AllPlanes, ZPixmap);
     return (*output);
+}
+
+
+XImage* darken_screenshot(XImage* image)
+{
+    XImage* clone = XSubImage(image, 0, 0, image->width, image->height);
+
+    for(int i = 0; i < image->width; i++)
+    {
+        for(int j = 0; j < image->height; j++)
+        {
+            unsigned long pixel = XGetPixel(clone, i, j);
+            uint8_t a = (pixel >> 16);
+            uint8_t b = (pixel >> 8);
+            uint8_t c = (pixel);
+
+            a /= 1.4;
+            b /= 1.4;
+            c /= 1.4;
+
+            XPutPixel(clone, i, j, c | (b << 8) | (a << 16));
+        }
+    }
+
+    return clone;
 }
 
 bool save_screenshot(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height)
