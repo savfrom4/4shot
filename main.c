@@ -106,8 +106,8 @@ int main(int argc, char** argv)
     GC gc = XCreateGC(display, window, 0, NULL);
 
     // setup backbuffer
-    Pixmap back_buffer = XCreatePixmap(display, window, scr_image->width, scr_image->height, 24);
-    XPutImage(display, back_buffer, gc, scr_image, 0, 0, 0, 0, scr_image->width, scr_image->height);
+    Pixmap back_buffer = XCreatePixmap(display, window, darkend_image->width, darkend_image->height, 24);
+    XPutImage(display, back_buffer, gc, darkend_image, 0, 0, 0, 0, darkend_image->width, darkend_image->height);
     XSetWindowBackgroundPixmap(display, window, back_buffer);
 
     Atom atoms[2] = { XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False), None };
@@ -125,73 +125,77 @@ int main(int argc, char** argv)
     uint32_t start_x = 0, start_y = 0;
     uint32_t end_x = 0, end_y = 0;
     bool pressed = false;
+    bool repaint = false;
 
     XEvent ev;
     while(1)
     {
-        while(XPending(display))
+        XNextEvent(display, &ev);
+        switch(ev.type)
         {
-            XNextEvent(display, &ev);
-            switch(ev.type)
+            case MotionNotify:
             {
-                case MotionNotify:
+                if(!pressed)
+                    break;
+
+                end_x = ev.xmotion.x;
+                end_y = ev.xmotion.y;
+                repaint = true;
+                break;
+            }
+
+            case ButtonPress:
+            {
+                if(ev.xbutton.button != MOUSE_SELECT)
+                    break;
+
+                pressed = true;
+                start_x = end_x = ev.xbutton.x;
+                start_y = end_y = ev.xbutton.y;
+                repaint = true;
+                break;
+            }
+
+            case ButtonRelease:
+            {
+                if(ev.xbutton.button == MOUSE_SAVE)
+                    goto save;
+
+                pressed = false;
+                break;
+            }
+
+            case KeyPress:
+            {
+                switch(XLookupKeysym(&ev.xkey, 0))
                 {
-                    if(!pressed)
+                    case KEY_LEFT:
+                        end_x--;
+                        repaint = true;
                         break;
 
-                    end_x = ev.xmotion.x;
-                    end_y = ev.xmotion.y;
-                    break;
-                }
-
-                case ButtonPress:
-                {
-                    if(ev.xbutton.button != MOUSE_SELECT)
+                    case KEY_RIGHT:
+                        end_x++;
+                        repaint = true;
                         break;
 
-                    pressed = true;
-                    start_x = end_x = ev.xbutton.x;
-                    start_y = end_y = ev.xbutton.y;
-                    break;
-                }
+                    case KEY_UP:
+                        end_y--;
+                        repaint = true;
+                        break;
 
-                case ButtonRelease:
-                {
-                    if(ev.xbutton.button == MOUSE_SAVE)
+                    case KEY_DOWN:
+                        end_y++;
+                        repaint = true;
+                        break;
+
+                    case KEY_CANCEL:
+                        goto quit;
+
+                    case KEY_SAVE:
                         goto save;
-
-                    pressed = false;
-                    break;
                 }
-
-                case KeyPress:
-                {
-                    switch(XLookupKeysym(&ev.xkey, 0))
-                    {
-                        case KEY_LEFT:
-                            end_x--;
-                            break;
-
-                        case KEY_RIGHT:
-                            end_x++;
-                            break;
-
-                        case KEY_UP:
-                            end_y--;
-                            break;
-
-                        case KEY_DOWN:
-                            end_y++;
-                            break;
-
-                        case KEY_CANCEL:
-                            goto quit;
-
-                        case KEY_SAVE:
-                            goto save;
-                    }
-                    break;
-                }
+                break;
             }
         }
 
@@ -201,32 +205,35 @@ int main(int argc, char** argv)
         if(start_y >= end_y)
             end_y = start_y + 1;
 
-        XPutImage(display, back_buffer, gc, darkend_image, 0, 0, 0, 0, darkend_image->width, darkend_image->height);
-        XSetForeground(display, gc, OUTLINE_PIXEL);
-        XDrawRectangle(display, back_buffer, gc, start_x, start_y, end_x - start_x, end_y - start_y);
+        if(repaint)
+        {
+            XPutImage(display, back_buffer, gc, darkend_image, 0, 0, 0, 0, darkend_image->width, darkend_image->height);
+            XSetForeground(display, gc, OUTLINE_PIXEL);
+            XDrawRectangle(display, back_buffer, gc, start_x, start_y, end_x - start_x, end_y - start_y);
 
-        char dim[16];
-        snprintf(dim, 16, "(%d, %d)", end_x - start_x, end_y - start_y);
+            char dim[16];
+            snprintf(dim, 16, "(%d, %d)", end_x - start_x, end_y - start_y);
 
-        // Draw dimensions & Shadow
-        XSetForeground(display, gc, BlackPixel(display, screen));
-        XDrawString(display, back_buffer, gc, start_x+1, start_y - 10+1, dim, strlen(dim));
-        XSetForeground(display, gc, WhitePixel(display, screen));
-        XDrawString(display, back_buffer, gc, start_x, start_y - 10, dim, strlen(dim));
+            // Draw dimensions & Shadow
+            XSetForeground(display, gc, BlackPixel(display, screen));
+            XDrawString(display, back_buffer, gc, start_x+1, start_y - 10+1, dim, strlen(dim));
+            XSetForeground(display, gc, WhitePixel(display, screen));
+            XDrawString(display, back_buffer, gc, start_x, start_y - 10, dim, strlen(dim));
 
-        XCopyArea(display,
-            back_buffer,
-            window,
-            gc,
-            0,
-            0,
-            darkend_image->width,
-            darkend_image->height,
-            0,
-            0
-        );
+            XCopyArea(display,
+                back_buffer,
+                window,
+                gc,
+                0,
+                0,
+                darkend_image->width,
+                darkend_image->height,
+                0,
+                0
+            );
 
-        usleep(1000 * 10);
+            repaint = false;
+        }
     }
 
 save:
