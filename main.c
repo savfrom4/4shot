@@ -124,9 +124,7 @@ int main(int argc, char** argv)
 
     uint32_t start_x = 0, start_y = 0;
     uint32_t end_x = 0, end_y = 0;
-    bool pressed = false;
-    bool repaint = false;
-
+    bool pressed = false, repaint = false;
     XEvent ev;
     while(1)
     {
