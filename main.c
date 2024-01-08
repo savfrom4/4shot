@@ -111,13 +111,13 @@ int main(int argc, char** argv)
     XSetWindowBackgroundPixmap(display, window, back_buffer);
 
     Atom atoms[2] = { XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False), None };
-
     XChangeProperty(display, window, XInternAtom(display, "_NET_WM_STATE", False), 4, 32, PropModeReplace, (unsigned char*)atoms, 1);
     XSelectInput(display, window,
         ExposureMask | KeyPressMask | ButtonPress | ButtonReleaseMask |
         PointerMotionMask | Button1MotionMask | PropertyChangeMask
     );
 
+    // in fullscreen mode we dont need to show the window
     if(options & OPTION_FULLSCREEN)
         return !save_screenshot(scr_image, 0, 0, scr_image->width, scr_image->height);
 
@@ -126,9 +126,10 @@ int main(int argc, char** argv)
     uint32_t start_x = 0, start_y = 0;
     uint32_t end_x = 0, end_y = 0;
     bool pressed = false, repaint = false;
-    XEvent ev;
+
     while(1)
     {
+        XEvent ev;
         while(XPending(display))
         {
             XNextEvent(display, &ev);
