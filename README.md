@@ -2,6 +2,8 @@
   <img src="4shot.png"/>
 </p>
 
+# [Download Latest Build](https://nightly.link/savfrom4/4shot/workflows/cmake-single-platform/main/4shot-latest.zip)
+
 **Small** X11 utility used for taking screenshots.
 
 The only dependencies of `4shot` are **XLib** and **libpng**.
