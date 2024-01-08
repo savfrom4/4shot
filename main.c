@@ -16,11 +16,11 @@
 #define KEY_RIGHT XK_Right
 #define KEY_SAVE XK_Return
 #define KEY_CANCEL XK_Escape
-
 #define MOUSE_SELECT 1
 #define MOUSE_SAVE 3
 
 #define OUTLINE_PIXEL ((uint64_t)255 << 16)
+#define DARKNESS 1.3
 
 #define VERSION "1.01"
 
@@ -312,9 +312,9 @@ XImage* darken_screenshot(XImage* image)
             uint8_t b = (pixel >> 8);
             uint8_t c = (pixel);
 
-            a /= 1.4;
-            b /= 1.4;
-            c /= 1.4;
+            a /= DARKNESS;
+            b /= DARKNESS;
+            c /= DARKNESS;
 
             XPutPixel(clone, i, j, c | (b << 8) | (a << 16));
         }
