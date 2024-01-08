@@ -238,6 +238,7 @@ save:
     }
 
 quit:
+    XUnmapWindow(display, window);
     XFreeGC(display, gc);
     XDestroyWindow(display, window);
     XCloseDisplay(display);
