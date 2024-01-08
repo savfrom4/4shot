@@ -46,7 +46,6 @@ bool parse_arguments(int argc, char** argv);
 bool take_screnshoot(Display* display, XImage** output);
 XImage* darken_screenshot(XImage* image);
 bool save_screenshot(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height);
-bool image_png_encode(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height);
 
 void show_help(const char* program_name)
 {
@@ -323,24 +322,6 @@ XImage* darken_screenshot(XImage* image)
     return clone;
 }
 
-bool save_screenshot(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height)
-{
-    if(!image_png_encode(image, xx, yy, width, height))
-        return false;
-
-    if(options & OPTION_FILENAME)
-    {
-        fwrite(encoded_image.buffer, encoded_image.size, 1, output_file);
-        fclose(output_file);
-    }
-
-    if(options & OPTION_STDOUT)
-        fwrite(encoded_image.buffer, encoded_image.size, 1, stdout);
-
-    free(encoded_image.buffer);
-    return true;
-}
-
 void image_png_write(png_structp png_ptr, png_bytep data, png_size_t length)
 {
     png_encoded_t* file = (png_encoded_t*)png_get_io_ptr(png_ptr);
@@ -361,7 +342,7 @@ void image_png_write(png_structp png_ptr, png_bytep data, png_size_t length)
     file->size += length;
 }
 
-bool image_png_encode(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height)
+bool save_screenshot(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, uint32_t height)
 {
     encoded_image.buffer = NULL;
     encoded_image.size = 0;
@@ -413,6 +394,16 @@ bool image_png_encode(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, u
 
     free(rows);
     png_destroy_write_struct(&png, &info);
+
+    if(options & OPTION_FILENAME)
+    {
+        fwrite(encoded_image.buffer, encoded_image.size, 1, output_file);
+        fclose(output_file);
+    }
+
+    if(options & OPTION_STDOUT)
+        fwrite(encoded_image.buffer, encoded_image.size, 1, stdout);
+
+    free(encoded_image.buffer);
     return true;
 }
-
