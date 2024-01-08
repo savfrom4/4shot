@@ -1,4 +1,4 @@
-# 4shot
+![4shot](4shot.png)
 
 **Small** X11 utility used for taking screenshots.
 
