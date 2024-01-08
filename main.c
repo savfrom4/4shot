@@ -20,9 +20,9 @@
 #define MOUSE_SAVE 3
 
 #define OUTLINE_PIXEL ((uint64_t)255 << 16)
-#define DARKNESS 1.3
+#define DARKNESS 1.6
 
-#define VERSION "1.01"
+#define VERSION "1.02"
 
 typedef struct
 {
@@ -111,6 +111,7 @@ int main(int argc, char** argv)
     XSetWindowBackgroundPixmap(display, window, back_buffer);
 
     Atom atoms[2] = { XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False), None };
+
     XChangeProperty(display, window, XInternAtom(display, "_NET_WM_STATE", False), 4, 32, PropModeReplace, (unsigned char*)atoms, 1);
     XSelectInput(display, window,
         ExposureMask | KeyPressMask | ButtonPress | ButtonReleaseMask |
@@ -128,84 +129,102 @@ int main(int argc, char** argv)
     XEvent ev;
     while(1)
     {
-        XNextEvent(display, &ev);
-        switch(ev.type)
+        while(XPending(display))
         {
-            case MotionNotify:
+            XNextEvent(display, &ev);
+            switch(ev.type)
             {
-                if(!pressed)
-                    break;
-
-                end_x = ev.xmotion.x;
-                end_y = ev.xmotion.y;
-                repaint = true;
-                break;
-            }
-
-            case ButtonPress:
-            {
-                if(ev.xbutton.button != MOUSE_SELECT)
-                    break;
-
-                pressed = true;
-                start_x = end_x = ev.xbutton.x;
-                start_y = end_y = ev.xbutton.y;
-                repaint = true;
-                break;
-            }
-
-            case ButtonRelease:
-            {
-                if(ev.xbutton.button == MOUSE_SAVE)
-                    goto save;
-
-                pressed = false;
-                break;
-            }
-
-            case KeyPress:
-            {
-                switch(XLookupKeysym(&ev.xkey, 0))
+                case MotionNotify:
                 {
-                    case KEY_LEFT:
-                        end_x--;
-                        repaint = true;
+                    if(!pressed)
                         break;
 
-                    case KEY_RIGHT:
-                        end_x++;
-                        repaint = true;
-                        break;
-
-                    case KEY_UP:
-                        end_y--;
-                        repaint = true;
-                        break;
-
-                    case KEY_DOWN:
-                        end_y++;
-                        repaint = true;
-                        break;
-
-                    case KEY_CANCEL:
-                        goto quit;
-
-                    case KEY_SAVE:
-                        goto save;
+                    end_x = ev.xmotion.x;
+                    end_y = ev.xmotion.y;
+                    repaint = true;
+                    break;
                 }
-                break;
+
+                case ButtonPress:
+                {
+                    if(ev.xbutton.button != MOUSE_SELECT)
+                        break;
+
+                    pressed = true;
+                    start_x = end_x = ev.xbutton.x;
+                    start_y = end_y = ev.xbutton.y;
+                    repaint = true;
+                    break;
+                }
+
+                case ButtonRelease:
+                {
+                    if(ev.xbutton.button == MOUSE_SAVE)
+                    {
+                        if(!save_screenshot(scr_image, start_x, start_y, end_x-start_x, end_y-start_y))
+                        {
+                            puts("Failed to save output image");
+                            return 1;
+                        }
+                        goto quit;
+                    }
+
+                    pressed = false;
+                    break;
+                }
+
+                case KeyPress:
+                {
+                    switch(XLookupKeysym(&ev.xkey, 0))
+                    {
+                        case KEY_LEFT:
+                            end_x--;
+                            repaint = true;
+                            break;
+
+                        case KEY_RIGHT:
+                            end_x++;
+                            repaint = true;
+                            break;
+
+                        case KEY_UP:
+                            end_y--;
+                            repaint = true;
+                            break;
+
+                        case KEY_DOWN:
+                            end_y++;
+                            repaint = true;
+                            break;
+
+                        case KEY_CANCEL:
+                            goto quit;
+
+                        case KEY_SAVE:
+                        {
+                            if(!save_screenshot(scr_image, start_x, start_y, end_x-start_x, end_y-start_y))
+                            {
+                                puts("Failed to save output image");
+                                return 1;
+                            }
+                            goto quit;
+                        }
+                    }
+                    break;
+                }
             }
+
+            if(start_x >= end_x)
+                end_x = start_x + 1;
+
+            if(start_y >= end_y)
+                end_y = start_y + 1;
         }
-
-        if(start_x >= end_x)
-            end_x = start_x + 1;
-
-        if(start_y >= end_y)
-            end_y = start_y + 1;
 
         if(repaint)
         {
             XPutImage(display, back_buffer, gc, darkend_image, 0, 0, 0, 0, darkend_image->width, darkend_image->height);
+            XPutImage(display, back_buffer, gc, scr_image, start_x, start_y, start_x, start_y, end_x - start_x, end_y - start_y);
             XSetForeground(display, gc, OUTLINE_PIXEL);
             XDrawRectangle(display, back_buffer, gc, start_x, start_y, end_x - start_x, end_y - start_y);
 
@@ -232,13 +251,8 @@ int main(int argc, char** argv)
 
             repaint = false;
         }
-    }
 
-save:
-    if(!save_screenshot(scr_image, start_x, start_y, end_x-start_x, end_y-start_y))
-    {
-        puts("Failed to save output image");
-        return 1;
+        usleep(1000 * 15);
     }
 
 quit:
