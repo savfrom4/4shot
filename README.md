@@ -12,6 +12,7 @@ The only dependencies of `4shot` are **XLib** and **libpng**.
 - `--full` Just uses fullscreen.
 - `--rect` Prompts user to select an area.
     - `LMB` select an area
+    - `Arrow keys` adjust the area
     - `RMB`/`Enter` take a screenshot
     - `ESC` cancel
 
