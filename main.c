@@ -253,7 +253,7 @@ int main(int argc, char** argv)
             repaint = false;
         }
 
-        usleep(1000 * 15);
+        usleep(1000);
     }
 
 quit:
@@ -312,6 +312,7 @@ bool take_screnshoot(Display* display, XImage** output)
 {
     Window root = DefaultRootWindow(display);
     XWindowAttributes attr;
+
     XGetWindowAttributes(display, root, &attr);
     (*output) = XGetImage(display, root, 0, 0, attr.width, attr.height, AllPlanes, ZPixmap);
     return (*output);
