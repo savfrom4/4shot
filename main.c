@@ -179,7 +179,7 @@ int main(int argc, char** argv)
                     switch(XLookupKeysym(&ev.xkey, 0))
                     {
                         case KEY_LEFT:
-                            end_x--;
+                            start_x--;
                             repaint = true;
                             break;
 
@@ -189,7 +189,7 @@ int main(int argc, char** argv)
                             break;
 
                         case KEY_UP:
-                            end_y--;
+                            start_y--;
                             repaint = true;
                             break;
 
@@ -229,8 +229,8 @@ int main(int argc, char** argv)
             XSetForeground(display, gc, OUTLINE_PIXEL);
             XDrawRectangle(display, back_buffer, gc, start_x, start_y, end_x - start_x, end_y - start_y);
 
-            char dim[16];
-            snprintf(dim, 16, "(%d, %d)", end_x - start_x, end_y - start_y);
+            char dim[32];
+            snprintf(dim, 32, "(%d, %d) (%d, %d)", start_x, start_y, end_x - start_x, end_y - start_y);
 
             // Draw dimensions & Shadow
             XSetForeground(display, gc, BlackPixel(display, screen));
