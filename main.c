@@ -376,7 +376,11 @@ bool save_screenshot(XImage* image, uint32_t xx, uint32_t yy, uint32_t width, ui
         return false;
 
     if (setjmp(png_jmpbuf(png)))
+    {
+        png_destroy_write_struct(&png, &info);
+        free(encoded_image.buffer);
         return false;
+    }
 
     png_set_write_fn(png, &encoded_image, image_png_write, NULL);
     png_set_IHDR(png,
